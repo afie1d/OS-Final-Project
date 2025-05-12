@@ -714,6 +714,8 @@ uint64 rthread_create(void *thread, void *func, void *arg)
   np->trapframe->a0 = (uint64)arg;
   np->trapframe->epc = (uint64)func;
   //np->trapframe->a0 = 0;
+  np->trapframe->sp -= 0x100;
+  walk(np->pagetable, np->trapframe->sp, 1);
 
   // increment reference counts on open file descriptors.
   for(i = 0; i < NOFILE; i++)
