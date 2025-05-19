@@ -744,9 +744,45 @@ uint64 rthread_create(void *thread, void *func, void *arg)
   return pid;
 }
 
-uint64 rthread_join(void *thread)
+uint64 rthread_join(int thread)
 {
-  printf("Join thread at addr %p\n", thread);
-  wait((uint64)thread);
+  
+  struct proc *pp;
+  int found, pid;
+  struct proc *p = myproc();
+
+  acquire(&wait_lock);
+
+  pid = (int)thread;
+
+  printf("Join thread with pid %d\n", pid);
+
+  found = 0;
+  for(pp = proc; pp < &proc[NPROC]; pp++){
+    if (pp->pid == pid){
+      if(pp->parent == p){
+        found = 1;
+        break;
+      }
+    }
+  }
+  if (!found || killed(p)){
+    release(&wait_lock);
+    return -1;
+  }
+
+  for(;;){
+    acquire(&pp->lock);
+    if(pp->state == ZOMBIE){
+          freeproc(pp);
+          release(&pp->lock);
+          release(&wait_lock);
+          return 0;
+    }
+    release(&pp->lock);
+    
+    sleep(p, &wait_lock);
+  }
+
   return 0;
 }

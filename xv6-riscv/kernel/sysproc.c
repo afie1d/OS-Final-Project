@@ -108,7 +108,7 @@ uint64 sys_rthread_create(void)
 
 uint64 sys_rthread_join(void)
 {
-  uint64 thread;
-  argaddr(0, &thread);
-  return rthread_join((void*)thread);
+  int thread;
+  argint(0, &thread);
+  return rthread_join(thread);
 }

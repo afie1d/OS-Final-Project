@@ -24,7 +24,7 @@ int sleep(int);
 int uptime(void);
 int spoon(void*);
 int rthread_create(void*, void*, void*);
-int rthread_join(void*);
+int rthread_join(int);
 
 // ulib.c
 int stat(const char*, struct stat*);
