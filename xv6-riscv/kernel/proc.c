@@ -155,10 +155,14 @@ found:
 static void
 freeproc(struct proc *p)
 {
+  if (p->n_thread != 0 && p->n_thread != p){
+    p->n_thread->p_thread = p->p_thread;
+    p->p_thread->n_thread = p->n_thread;
+  }
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
-  if(p->pagetable)
+  if(p->pagetable && (p->n_thread == 0 || p->n_thread == p))
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
   p->sz = 0;
@@ -700,7 +704,7 @@ uint64 rthread_create(void *thread, void *func, void *arg)
   }
 
   // Copy user memory from parent to child.
-  if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
+  if(uvmthreadcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
     release(&np->lock);
     return -1;
@@ -731,6 +735,17 @@ uint64 rthread_create(void *thread, void *func, void *arg)
 
   acquire(&wait_lock);
   np->parent = p;
+  if(p->n_thread == 0){
+    p->n_thread = np;
+    p->p_thread = np;
+    np->n_thread = p;
+    np->p_thread = p;
+  } else {
+    np->n_thread = p->n_thread;
+    np->n_thread->p_thread = np;
+    np->p_thread = p;
+    p->n_thread = np;
+  }
   release(&wait_lock);
 
   acquire(&np->lock);
