@@ -1,0 +1,39 @@
+---
+title: Project Milestone 3
+Authors: Henry Morin, Adam Field, and Ronin Pojedinec
+Date: 5/19/2025
+---
+
+High level description
+======================
+In this milestone we implemented three things: modified rthread_create, implemented rthread_join and memory sharing. Rthread_join functions effectively like pthread_join, where it takes a thread pointer and then ends that thread. So for example if we wished to end the thread “thr1”, we would do: rthread_join(&thr1);
+For memory sharing, we are effectively ensuring that when a thread is created, its memory information is the same as the thread it was created off of. Similar to the Copy-On-Write lab, our new thread’s page table contains pointers to the parent’s memory immediately after creation. In the next milestone we will be ensuring that this child will allocate its own memory space to edit when it modifies its memory.
+
+
+Thread creation
+================
+	Thread creation has been altered to no longer allocate new pages for the new thread’s pagetable and instead maps the parent pages. It also now keeps track of its sibling threads through a doubly linked list.
+
+	In order to join a thread, we first have to find the thread to terminate. We search through each proc for each thread until we find the one with a matching pid to the pid given as the functions argument.  If we do not find the proc with a matching PID or if that proc has already been terminated, we return a -1. Otherwise we free the proc and return a 0 from the function.
+Note that this code is heavily based on the code in wait().
+
+Memory sharing
+===============
+	As already mentioned, memory sharing in this milestone shares similar logic to the Copy-On-Write lab, where each child thread’s page table does not allocate new memory space to use initially. Instead each child creates its own page table, but it contains pointers to the memory of the parent thread.
+	When the thread processes are being freed, the check to see if they have any siblings before actually freeing its pagetable. It will only free it if it is the last thread remaining.
+
+Test cases
+===========
+To test thread joining, we create multiple threads, sleep for some time, then join the threads and verify that the joined threads no longer occupy memory via print statements, leaving only the parent. 
+
+To test shared memory, we create multiple threads and have each increment the same variable, with varying sleep times in between, then verify that each individual thread is incrementing the variable via print statements. Since each thread has access to the same variable, they must be sharing the same memory.
+
+Additional comments
+==================
+
+We are still struggling with updating stack pointers upon thread creation. We plan on asking the professor after demoing milestone 3. 
+
+Grade
+======
+For this milestone we believe we deserve a 90%,  we have met each specification as provided, we each understand our own and each other’s code, and we have written elaborate test cases that proves our code works as intended. However we struggled to make the required changes to the stack pointer to move it up instead of down as mentioned above. Because of this minor error, but otherwise correct implementation, we deserve a 90% grade. 
+
