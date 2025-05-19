@@ -97,6 +97,8 @@ struct proc {
   struct proc *p_thread;
   struct proc *n_thread;
 
+  int threads;
+
   // these are private to the process, so p->lock need not be held.
   uint64 kstack;               // Virtual address of kernel stack
   uint64 sz;                   // Size of process memory (bytes)

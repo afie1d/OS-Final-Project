@@ -145,6 +145,7 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+  p->threads = 0;
 
   return p;
 }
@@ -258,8 +259,22 @@ userinit(void)
   release(&p->lock);
 }
 
+int
+updatethreadpagetables(struct proc *from, struct proc *to){
+  if (to == 0 || from == to){
+    return 0;
+  }
+  acquire(&to->lock);
+  if (uvmthreadcopy(from->pagetable, to->pagetable, from->sz) < 0){
+    release(&to->lock);
+    return -1;
+  }
+  release(&to->lock);
+  return updatethreadpagetables(from, to->n_thread);
+}
+
 // Grow or shrink user memory by n bytes.
-// Return 0 on success, -1 on failure.
+// Return 0 on  success, -1 on failure.
 int
 growproc(int n)
 {
@@ -275,7 +290,7 @@ growproc(int n)
     sz = uvmdealloc(p->pagetable, sz, sz + n);
   }
   p->sz = sz;
-  return 0;
+  return updatethreadpagetables(p, p->n_thread);
 }
 
 // Create a new process, copying the parent.
@@ -703,6 +718,18 @@ uint64 rthread_create(void *thread, void *func, void *arg)
     return -1;
   }
 
+  //printf("Stack: %x, %x\n", p->trapframe->sp, PGSIZE);
+
+  p->threads++;
+  
+  
+  //new_sp = PGROUNDDOWN(new_sp); 
+  //printf("New Stack: %x\n", new_sp);
+
+  //new_sp = PGROUNDUP(new_sp);
+
+  
+
   // Copy user memory from parent to child.
   if(uvmthreadcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
@@ -718,9 +745,11 @@ uint64 rthread_create(void *thread, void *func, void *arg)
   np->trapframe->a0 = (uint64)arg;
   np->trapframe->epc = (uint64)func;
   //np->trapframe->a0 = 0;
-  np->trapframe->sp -= 0x100;
-  walk(np->pagetable, np->trapframe->sp, 1);
+  uint64 new_sp = p->trapframe->sp - 0x500 * p->threads;
+  np->trapframe->sp = new_sp;
+  walk(np->pagetable, new_sp, 1);
 
+  
   // increment reference counts on open file descriptors.
   for(i = 0; i < NOFILE; i++)
     if(p->ofile[i])
@@ -729,6 +758,7 @@ uint64 rthread_create(void *thread, void *func, void *arg)
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
+  
   pid = np->pid;
 
   release(&np->lock);
