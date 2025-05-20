@@ -718,16 +718,7 @@ uint64 rthread_create(void *thread, void *func, void *arg)
     return -1;
   }
 
-  //printf("Stack: %x, %x\n", p->trapframe->sp, PGSIZE);
-
   p->threads++;
-  
-  
-  //new_sp = PGROUNDDOWN(new_sp); 
-  //printf("New Stack: %x\n", new_sp);
-
-  //new_sp = PGROUNDUP(new_sp);
-
   
 
   // Copy user memory from parent to child.
@@ -744,11 +735,6 @@ uint64 rthread_create(void *thread, void *func, void *arg)
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = (uint64)arg;
   np->trapframe->epc = (uint64)func;
-  //np->trapframe->a0 = 0;
-  uint64 new_sp = p->trapframe->sp - 0x500 * p->threads;
-  np->trapframe->sp = new_sp;
-  walk(np->pagetable, new_sp, 1);
-
   
   // increment reference counts on open file descriptors.
   for(i = 0; i < NOFILE; i++)
@@ -758,6 +744,11 @@ uint64 rthread_create(void *thread, void *func, void *arg)
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
+  // create new stack
+  uint64 stack_pa = (uint64)kalloc();
+  uint64 stack_va = PGSIZE + (np->pid + 1) * PGSIZE;  
+  mappages(np->pagetable, stack_va, PGSIZE, stack_pa, PTE_R | PTE_W | PTE_U);
+  np->trapframe->sp = stack_va + PGSIZE;
   
   pid = np->pid;
 
