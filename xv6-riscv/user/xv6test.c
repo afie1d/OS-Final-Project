@@ -1,6 +1,7 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
+#include <stddef.h>
 
 int var = 20;
 
@@ -11,17 +12,29 @@ void *do_nothing(void* arg){
   exit(0);
 }
 
-void *thread_func(void* arg){
+void *add_to_var(void* arg){
   sleep(10);
-  uint64 *p = (uint64*)arg;
-
   var++;
-
-  printf("OTHER THREAD, %x, %x\n", *p, getpid());
-
-  printf("Var: %d\n", var);
   exit(0);
 }
+
+void *read_from_stack(void* arg) {
+  uint64 *var_addr = (uint64*)arg;
+  int my_var = *var_addr;
+  if(my_var != 123)
+    printf("FAILED TO READ ANOTHER THREAD'S DATA\n");
+  exit(0);
+}
+
+void *write_to_stack(void* arg) {
+  int local_var = 123;
+  int tid;
+  rthread_create((void*)&tid, (void*)read_from_stack, (void*)&local_var);
+  rthread_join(tid);
+  exit(0);
+}
+
+
 
 // test thread creation & joining
 void test1() {
@@ -52,24 +65,49 @@ void test1() {
   printf("TEST 1: SUCCESS\n");
 }
 
+// test shared memory
+void test2() {
+
+ printf("TEST 2: SHARED MEMORY\n");
+ uint64 p = 0xdeadbeef;
+ int t1, t2, t3, t4;
+ rthread_create((void*)&t1, (void*)add_to_var, (void*)&p);
+ sleep(3);
+ rthread_create((void*)&t2, (void*)add_to_var, (void*)&p);
+ sleep(3);
+ rthread_create((void*)&t3, (void*)add_to_var, (void*)&p);
+ sleep(3);
+ rthread_create((void*)&t4, (void*)add_to_var, (void*)&p);
+
+ rthread_join(t1);
+ rthread_join(t2);
+ rthread_join(t3);
+ rthread_join(t4);
+
+ if(var == 24) {
+   printf("TEST 2: SUCCESS\n");
+ } else {
+   printf("FAILURE: SHARED MEMORY; expected var = 24, got var = %d\n", var);
+ }
+
+}
+
+// make sure threads can access each others' stack
+void test3() {
+  printf("TEST 3: STACK ACCESS\n");
+  int tid;
+  rthread_create((void*)&tid, (void*)write_to_stack, NULL);
+  rthread_join(tid);
+  
+  // if no error from thread, success
+  printf("TEST 3: SUCCESS (if no errors above)\n");
+}
+
 int main(int argc, char *argv[]) {
 
   test1();
-
-/*
-  printf("Var: %d\n", var);
-  uint64 p = 0xdeadbeef;
-
-  spoon((void*)p);
+  test2();
+  test3();
   
-  int t, t2;
-  printf("Starting o thread\n");
-  rthread_create((void*)&t, (void*)thread_func, (void*)&p);
-  sleep(5);
-  rthread_create((void*)&t2, (void*)thread_func, (void*)&p);
-  rthread_join(t);
-  rthread_join(t2);
-  //sleep(2);
-  printf("PARENT, %x\n", t); */
   exit(0); 
 }

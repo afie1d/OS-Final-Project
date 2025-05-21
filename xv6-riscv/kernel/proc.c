@@ -744,11 +744,7 @@ uint64 rthread_create(void *thread, void *func, void *arg)
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
-  // create new stack
-  uint64 stack_pa = (uint64)kalloc();
-  uint64 stack_va = PGSIZE + (np->pid + 1) * PGSIZE;  
-  mappages(np->pagetable, stack_va, PGSIZE, stack_pa, PTE_R | PTE_W | PTE_U);
-  np->trapframe->sp = stack_va + PGSIZE;
+  
   
   pid = np->pid;
 
@@ -766,6 +762,21 @@ uint64 rthread_create(void *thread, void *func, void *arg)
     np->n_thread->p_thread = np;
     np->p_thread = p;
     p->n_thread = np;
+  }
+  release(&wait_lock);
+
+  // create new stack
+  uint64 stack_pa = (uint64)kalloc();
+  uint64 stack_va = PGSIZE + (np->pid + 1) * PGSIZE;  
+  mappages(np->pagetable, stack_va, PGSIZE, stack_pa, PTE_R | PTE_W | PTE_U);
+  np->trapframe->sp = stack_va + PGSIZE;
+
+  // map new stack to all threads
+  acquire(&wait_lock);
+  struct proc *cur_thread = np->n_thread;
+  while(cur_thread != np) {
+    mappages(cur_thread->pagetable, stack_va, PGSIZE, stack_pa, PTE_R | PTE_W | PTE_U);
+    cur_thread = cur_thread->n_thread;
   }
   release(&wait_lock);
 
