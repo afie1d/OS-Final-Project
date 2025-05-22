@@ -4,11 +4,10 @@
 #include <stddef.h>
 
 int var = 20;
+int *page = (int*)0xdeadbeef;
 
 void *do_nothing(void* arg){
-  printf("thread doing nothing...\n");
   sleep(10);
-  printf("thread done doing nothing, now exiting\n");
   exit(0);
 }
 
@@ -31,6 +30,25 @@ void *write_to_stack(void* arg) {
   int tid;
   rthread_create((void*)&tid, (void*)read_from_stack, (void*)&local_var);
   rthread_join(tid);
+  exit(0);
+}
+
+void *allocate_page(void* arg) {
+  page = (int*)sbrk(4096);
+  page[0] = 3;
+  page[1] = 2;
+  exit(0);
+}
+
+void *check_page(void* arg) {
+  sleep(50);
+  if(*page == 0xdeadbeef) {
+    printf("FAILURE: TEST 4 (pagetable update not read)\n");
+  } else if (page[0] == 3 && page[1] == 2) {
+    printf("TEST 4: SUCCESS\n");
+  } else {
+    printf("FAILURE: TEST 4 (wrong values read from page)\n");
+  }
   exit(0);
 }
 
@@ -103,11 +121,21 @@ void test3() {
   printf("TEST 3: SUCCESS (if no errors above)\n");
 }
 
+// test pagetable updates
+void test4() {
+  int t1, t2;
+  rthread_create((void*)&t1, (void*)allocate_page, NULL);
+  rthread_create((void*)&t2, (void*)check_page, NULL);
+  rthread_join(t1);
+  rthread_join(t2);
+}
+
 int main(int argc, char *argv[]) {
 
   test1();
   test2();
   test3();
+  test4();
   
   exit(0); 
 }
