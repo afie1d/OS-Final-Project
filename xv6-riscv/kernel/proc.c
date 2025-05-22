@@ -270,6 +270,7 @@ updatethreadpagetables(struct proc *from, struct proc *to){
     release(&to->lock);
     return -1;
   }
+  to->sz = from->sz;
   release(&to->lock);
   return updatethreadpagetables(from, to->n_thread);
 }
