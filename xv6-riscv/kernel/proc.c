@@ -163,8 +163,8 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
-  if(p->pagetable && (p->n_thread == 0 || p->n_thread == p))
-  //if(p->pagetable)
+  //if(p->pagetable && (p->n_thread == 0 || p->n_thread == p))
+  if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
   p->sz = 0;

@@ -95,6 +95,6 @@ kalloc(void)
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   int page = FRINDEX(r);
-  ref_count[page]++;
+  ref_count[page] = 1;
   return (void*)r;
 }
