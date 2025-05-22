@@ -275,17 +275,6 @@ updatethreadpagetables(struct proc *from, struct proc *to){
   return updatethreadpagetables(from, to->n_thread);
 }
 
-// given a thread, update all related threads' page tables
-// returns 0 on success, -1 on failure
-int updateallpagetables(struct proc t) {
-  struct proc *cur_thread = t.n_thread;
-  while(cur_thread != &t) {
-    if(updatethreadpagetables(cur_thread, cur_thread->n_thread) < 0)
-      return -1;
-    cur_thread = cur_thread->n_thread;
-  }
-  return 0;
-}
 
 // Grow or shrink user memory by n bytes.
 // Return 0 on  success, -1 on failure.
