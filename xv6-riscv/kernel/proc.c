@@ -260,21 +260,34 @@ userinit(void)
   release(&p->lock);
 }
 
+// Loop through all threads related to t, update their page tables to match t's
 int
-updatethreadpagetables(struct proc *from, struct proc *to){
-  if (to == 0 || from == to){
+updatethreadpagetables(struct proc *t)
+{
+  if (t->n_thread == 0 || t->n_thread == t) {
     return 0;
   }
-  acquire(&to->lock);
-  uvmunmap(to->pagetable, 0, PGROUNDUP(to->sz)/PGSIZE, 0);
-  if (uvmthreadcopy(from->pagetable, to->pagetable, from->sz) < 0){
-    release(&to->lock);
-    return -1;
+
+  struct proc *cur = t->n_thread;
+  while (cur != t) {
+    acquire(&cur->lock);
+    uvmunmap(cur->pagetable, 0, PGROUNDUP(cur->sz) / PGSIZE, 0);
+    if (uvmthreadcopy(t->pagetable, cur->pagetable, t->sz) < 0) {
+      release(&cur->lock);
+      return -1;
+    }
+    cur->sz = t->sz;
+
+    if (cur->trapframe->sp > cur->sz)
+      cur->trapframe->sp = cur->sz;
+
+    release(&cur->lock);
+    cur = cur->n_thread;
   }
-  to->sz = from->sz;
-  release(&to->lock);
-  return updatethreadpagetables(from, to->n_thread);
+
+  return 0;
 }
+
 
 
 // Grow or shrink user memory by n bytes.
@@ -294,7 +307,7 @@ growproc(int n)
     sz = uvmdealloc(p->pagetable, sz, sz + n);
   }
   p->sz = sz;
-  return updatethreadpagetables(p, p->n_thread);
+  return updatethreadpagetables(p);
 }
 
 // Create a new process, copying the parent.

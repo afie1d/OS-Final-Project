@@ -123,9 +123,11 @@ void test3() {
 
 // test pagetable updates
 void test4() {
-  int t1, t2;
+  printf("TEST 4: PAGETABLE UPDATES\n");
+  int t1, t2, t3;
   rthread_create((void*)&t1, (void*)allocate_page, NULL);
   rthread_create((void*)&t2, (void*)check_page, NULL);
+  rthread_create((void*)&t3, (void*)check_page, NULL);
   rthread_join(t1);
   rthread_join(t2);
 }
