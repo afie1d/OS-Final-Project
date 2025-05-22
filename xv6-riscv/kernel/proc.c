@@ -266,6 +266,7 @@ updatethreadpagetables(struct proc *from, struct proc *to){
     return 0;
   }
   acquire(&to->lock);
+  uvmunmap(to->pagetable, 0, PGROUNDUP(to->sz)/PGSIZE, 0);
   if (uvmthreadcopy(from->pagetable, to->pagetable, from->sz) < 0){
     release(&to->lock);
     return -1;
