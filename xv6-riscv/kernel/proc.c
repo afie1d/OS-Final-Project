@@ -164,6 +164,7 @@ freeproc(struct proc *p)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
   if(p->pagetable && (p->n_thread == 0 || p->n_thread == p))
+  //if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
   p->sz = 0;
@@ -767,14 +768,17 @@ uint64 rthread_create(void *thread, void *func, void *arg)
 
   // create new stack
   uint64 stack_pa = (uint64)kalloc();
-  uint64 stack_va = PGSIZE + (np->pid + 1) * PGSIZE;  
+  uint64 stack_va = PGROUNDUP(np->sz);  
   mappages(np->pagetable, stack_va, PGSIZE, stack_pa, PTE_R | PTE_W | PTE_U);
-  np->trapframe->sp = stack_va + PGSIZE;
+  np->sz += PGSIZE;
+  np->trapframe->sp = stack_va + PGSIZE - 8;
 
   // map new stack to all threads
   acquire(&wait_lock);
   struct proc *cur_thread = np->n_thread;
   while(cur_thread != np) {
+    incref((void*)stack_pa);
+    cur_thread->sz += PGSIZE;
     mappages(cur_thread->pagetable, stack_va, PGSIZE, stack_pa, PTE_R | PTE_W | PTE_U);
     cur_thread = cur_thread->n_thread;
   }
