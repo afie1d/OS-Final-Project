@@ -333,14 +333,14 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 }
 
 int
-uvmthreadcopy(pagetable_t old, pagetable_t new, uint64 sz)
+uvmthreadcopy(pagetable_t old, pagetable_t new, uint64 sz, uint64 start)
 {
   pte_t *pte;
   uint64 pa, i;
   uint flags;
   //char *mem;
 
-  for(i = 0; i < sz; i += PGSIZE){
+  for(i = start; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmkcopy: pte should exist");
     if((*pte & PTE_V) == 0)

@@ -262,19 +262,26 @@ userinit(void)
 
 // Loop through all threads related to t, update their page tables to match t's
 int
-updatethreadpagetables(struct proc *t)
+updatethreadpagetables(struct proc *t, int sz)
 {
   if (t->n_thread == 0 || t->n_thread == t) {
     return 0;
   }
-
+  
+  acquire(&wait_lock);
   struct proc *cur = t->n_thread;
-  while (cur != t) {
-    acquire(&cur->lock);
-    uvmunmap(cur->pagetable, 0, PGROUNDUP(cur->sz) / PGSIZE, 0);
-    if (uvmthreadcopy(t->pagetable, cur->pagetable, t->sz) < 0) {
-      release(&cur->lock);
-      return -1;
+  while (cur != t) { 
+    acquire(&cur->lock); 
+
+    if (sz<0){
+      uvmdealloc(cur->pagetable, cur->sz, sz);
+    } else {
+
+      //uvmunmap(cur->pagetable, 0, PGROUNDUP(cur->sz) / PGSIZE, 1);
+      if (uvmthreadcopy(t->pagetable, cur->pagetable, t->sz, PGROUNDUP(cur->sz)) < 0) {
+        release(&cur->lock);
+        return -1;
+      }
     }
     cur->sz = t->sz;
 
@@ -284,6 +291,7 @@ updatethreadpagetables(struct proc *t)
     release(&cur->lock);
     cur = cur->n_thread;
   }
+  release(&wait_lock);
 
   return 0;
 }
@@ -307,7 +315,9 @@ growproc(int n)
     sz = uvmdealloc(p->pagetable, sz, sz + n);
   }
   p->sz = sz;
-  return updatethreadpagetables(p);
+  //acquire(&wait_lock);
+  return updatethreadpagetables(p, sz);
+  //release(&wait_lock);
 }
 
 // Create a new process, copying the parent.
@@ -739,7 +749,7 @@ uint64 rthread_create(void *thread, void *func, void *arg)
   
 
   // Copy user memory from parent to child.
-  if(uvmthreadcopy(p->pagetable, np->pagetable, p->sz) < 0){
+  if(uvmthreadcopy(p->pagetable, np->pagetable, p->sz, 0) < 0){
     freeproc(np);
     release(&np->lock);
     return -1;

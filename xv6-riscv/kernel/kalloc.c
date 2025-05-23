@@ -46,7 +46,9 @@ freerange(void *pa_start, void *pa_end)
 
 void incref(void *pa){
   int page = FRINDEX(pa);
+  acquire(&kmem.lock);
   ref_count[page]++;
+  release(&kmem.lock);
 }
 
 // Free the page of physical memory pointed at by pa,
@@ -62,10 +64,13 @@ kfree(void *pa)
     panic("kfree");
 
   int page = FRINDEX(pa);
+  acquire(&kmem.lock);
   ref_count[page]--;
   if (ref_count[page] > 0){
+    release(&kmem.lock);
     return;
   }
+  release(&kmem.lock);
 
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
@@ -95,6 +100,8 @@ kalloc(void)
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   int page = FRINDEX(r);
+  acquire(&kmem.lock);
   ref_count[page] = 1;
+  release(&kmem.lock);
   return (void*)r;
 }
