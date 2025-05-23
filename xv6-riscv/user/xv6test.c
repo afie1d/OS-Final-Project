@@ -127,9 +127,11 @@ void test4() {
   int t1, t2, t3;
   rthread_create((void*)&t1, (void*)allocate_page, NULL);
   rthread_create((void*)&t2, (void*)check_page, NULL);
+  sleep(1);
   rthread_create((void*)&t3, (void*)check_page, NULL);
   rthread_join(t1);
   rthread_join(t2);
+  rthread_join(t3);
 }
 
 int main(int argc, char *argv[]) {

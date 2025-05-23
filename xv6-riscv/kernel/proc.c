@@ -268,7 +268,7 @@ updatethreadpagetables(struct proc *t, int sz)
     return 0;
   }
   
-  acquire(&wait_lock);
+  //acquire(&wait_lock);
   struct proc *cur = t->n_thread;
   while (cur != t) { 
     acquire(&cur->lock); 
@@ -280,6 +280,7 @@ updatethreadpagetables(struct proc *t, int sz)
       //uvmunmap(cur->pagetable, 0, PGROUNDUP(cur->sz) / PGSIZE, 1);
       if (uvmthreadcopy(t->pagetable, cur->pagetable, t->sz, PGROUNDUP(cur->sz)) < 0) {
         release(&cur->lock);
+        //release(&wait_lock);
         return -1;
       }
     }
@@ -291,7 +292,7 @@ updatethreadpagetables(struct proc *t, int sz)
     release(&cur->lock);
     cur = cur->n_thread;
   }
-  release(&wait_lock);
+  //release(&wait_lock);
 
   return 0;
 }
@@ -305,10 +306,13 @@ growproc(int n)
 {
   uint64 sz;
   struct proc *p = myproc();
+  
+  acquire(&wait_lock);
 
   sz = p->sz;
   if(n > 0){
     if((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
+      release(&wait_lock);
       return -1;
     }
   } else if(n < 0){
@@ -316,8 +320,9 @@ growproc(int n)
   }
   p->sz = sz;
   //acquire(&wait_lock);
-  return updatethreadpagetables(p, sz);
-  //release(&wait_lock);
+  int v = updatethreadpagetables(p, sz);
+  release(&wait_lock);
+  return v;
 }
 
 // Create a new process, copying the parent.
@@ -740,10 +745,14 @@ uint64 rthread_create(void *thread, void *func, void *arg)
   struct proc *np;
   struct proc *p = myproc();
 
+
+  acquire(&wait_lock);
   // Allocate process.
   if((np = allocproc()) == 0){
     return -1;
   }
+
+  //acquire(&wait_lock);
 
   p->threads++;
   
@@ -755,6 +764,8 @@ uint64 rthread_create(void *thread, void *func, void *arg)
     return -1;
   }
   np->sz = p->sz;
+ // release(&wait_lock);
+
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -777,7 +788,7 @@ uint64 rthread_create(void *thread, void *func, void *arg)
 
   release(&np->lock);
 
-  acquire(&wait_lock);
+  //acquire(&wait_lock);
   np->parent = p;
   if(p->n_thread == 0){
     p->n_thread = np;
@@ -790,17 +801,18 @@ uint64 rthread_create(void *thread, void *func, void *arg)
     np->p_thread = p;
     p->n_thread = np;
   }
-  release(&wait_lock);
+  //release(&wait_lock);
 
   // create new stack
   uint64 stack_pa = (uint64)kalloc();
-  uint64 stack_va = PGROUNDUP(np->sz);  
+  uint64 stack_va = PGROUNDUP(np->sz);
+  
   mappages(np->pagetable, stack_va, PGSIZE, stack_pa, PTE_R | PTE_W | PTE_U);
   np->sz += PGSIZE;
   np->trapframe->sp = stack_va + PGSIZE - 8;
 
   // map new stack to all threads
-  acquire(&wait_lock);
+  //acquire(&wait_lock);
   struct proc *cur_thread = np->n_thread;
   while(cur_thread != np) {
     incref((void*)stack_pa);
